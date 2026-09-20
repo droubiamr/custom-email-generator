@@ -16,6 +16,9 @@
     // API calls must reach the Worker even if a static file has the same name.
     "run_worker_first": ["/api/*"]
   },
+  // The app's public address. Declaring it here means the deploy creates and
+  // keeps it; a domain added only in the dashboard is wiped on the next deploy.
+  "routes": [{ "pattern": "homsreisen.trip.sy", "custom_domain": true }],
   "observability": { "enabled": true },
   "upload_source_maps": true,
   "d1_databases": [
