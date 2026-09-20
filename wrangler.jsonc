@@ -1,0 +1,44 @@
+/**
+ * Cloudflare configuration. Every "binding" below is a resource the Worker
+ * can talk to by name: DB is the D1 database, MAIL is the R2 bucket that
+ * keeps raw emails and attachments.
+ * Docs: https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "custom-email-generator",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-16",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    // The React app is a single-page app: unknown paths get index.html.
+    "not_found_handling": "single-page-application",
+    // API calls must reach the Worker even if a static file has the same name.
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": { "enabled": true },
+  "upload_source_maps": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "custom-email-generator",
+      // Replaced with the real id after `wrangler d1 create` at deploy time.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "MAIL", "bucket_name": "custom-email-generator-mail" }
+  ],
+  "vars": {
+    // Public, non-secret settings. Secrets (BETTER_AUTH_SECRET) go in
+    // .dev.vars locally and `wrangler secret put` in production.
+    "APP_URL": "https://hrcustomer.trip.sy",
+    "MAIL_DOMAIN": "hrcustomer.trip.sy",
+    // ALLOWED_SIGNUP_EMAILS is a secret, not a var: comma-separated emails
+    // allowed to create an account. Empty means anyone may sign up.
+    // Never set this in production. Tests set it to "1" so they can create
+    // many accounts quickly without tripping the login rate limiter.
+    "DISABLE_RATE_LIMIT": ""
+  }
+}
