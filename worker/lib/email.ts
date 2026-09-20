@@ -17,9 +17,10 @@ import { chunk, isUniqueViolation } from "./sql";
 
 const MAX_RAW_BYTES = 25 * 1024 * 1024; // Email Routing's own limit
 const SNIPPET_LENGTH = 160;
-// D1 rows are limited to 2 MB. Bodies beyond this are cut; the original in
-// R2 stays complete.
-const MAX_BODY_CHARS = 700_000;
+// D1 rows are limited to 2 MB. Bodies beyond this are cut (measured in
+// bytes, since Arabic and other scripts use several bytes per character);
+// the original in R2 stays complete.
+const MAX_BODY_BYTES = 600_000;
 const MAX_SUBJECT = 500;
 const MAX_NAME = 200;
 const MAX_ADDRESS = 320;
@@ -48,18 +49,7 @@ export async function handleEmail(message: ForwardableEmailMessage, env: Env) {
     return;
   }
 
-  // 2. Mailbox quota: refuse with a permanent error once an address is full.
-  const usage = await db
-    .select({ bytes: sql<number>`coalesce(sum(${schema.messages.rawSize}), 0)`, n: sql<number>`count(*)` })
-    .from(schema.messages)
-    .where(eq(schema.messages.customerId, customer.id))
-    .get();
-  if (usage && (Number(usage.bytes) + message.rawSize > MAX_MAILBOX_BYTES || Number(usage.n) >= MAX_MAILBOX_MESSAGES)) {
-    message.setReject("Mailbox full");
-    return;
-  }
-
-  // 3. Read the raw message exactly once (the stream cannot be re-read).
+  // 2. Read the raw message exactly once (the stream cannot be re-read).
   //    The dedupe key pairs the sender-supplied Message-ID with the envelope
   //    sender, so a stranger cannot pre-empt a real sender's ID. Without a
   //    Message-ID the content hash is used instead.
@@ -71,7 +61,7 @@ export async function handleEmail(message: ForwardableEmailMessage, env: Env) {
       ? `${envelopeFrom}|${headerId}`
       : `sha256:${await sha256Hex(raw)}`;
 
-  // 4. Already stored? Then this is a redelivery. Nothing to do.
+  // 3. Already stored? Then this is a redelivery. Nothing to do.
   const existing = await db.query.messages.findFirst({
     where: and(
       eq(schema.messages.customerId, customer.id),
@@ -81,23 +71,33 @@ export async function handleEmail(message: ForwardableEmailMessage, env: Env) {
   });
   if (existing) return;
 
+  // 4. Mailbox quota: refuse with a permanent error once an address is full.
+  const usage = await db
+    .select({ bytes: sql<number>`coalesce(sum(${schema.messages.rawSize}), 0)`, n: sql<number>`count(*)` })
+    .from(schema.messages)
+    .where(eq(schema.messages.customerId, customer.id))
+    .get();
+  if (usage && (Number(usage.bytes) + message.rawSize > MAX_MAILBOX_BYTES || Number(usage.n) >= MAX_MAILBOX_MESSAGES)) {
+    message.setReject("Mailbox full");
+    return;
+  }
+
   // 5. Keep the original safe first. Storage keys derive from the dedupe key,
   //    so a retry overwrites the same objects instead of leaving orphans.
   const messageId = crypto.randomUUID();
-  const storageId = await sha256Hex(new TextEncoder().encode(dedupeKey).buffer as ArrayBuffer);
+  const storageId = await sha256Hex(new TextEncoder().encode(dedupeKey));
   const rawKey = `raw/${customer.id}/${storageId}.eml`;
-  await env.MAIL.put(rawKey, raw, {
-    httpMetadata: { contentType: "message/rfc822" },
-    customMetadata: { from: message.from, to, dedupeKey },
-  });
+  await env.MAIL.put(rawKey, raw, { httpMetadata: { contentType: "message/rfc822" } });
 
   // 6. Parse into fields the app can show.
   const parsed = await PostalMime.parse(raw);
   const fullText = parsed.text ?? null;
   const fullHtml = parsed.html ?? null;
-  const text = fullText === null ? null : fullText.slice(0, MAX_BODY_CHARS);
-  const html = fullHtml === null ? null : fullHtml.slice(0, MAX_BODY_CHARS);
-  const bodyTruncated = (fullText?.length ?? 0) > MAX_BODY_CHARS || (fullHtml?.length ?? 0) > MAX_BODY_CHARS;
+  const textCut = fullText === null ? null : cutToBytes(fullText, MAX_BODY_BYTES);
+  const htmlCut = fullHtml === null ? null : cutToBytes(fullHtml, MAX_BODY_BYTES);
+  const text = textCut?.value ?? null;
+  const html = htmlCut?.value ?? null;
+  const bodyTruncated = Boolean(textCut?.truncated || htmlCut?.truncated);
   const snippetSource = text ?? (html ? stripTags(html) : "");
   const snippet = snippetSource.replace(/\s+/g, " ").trim().slice(0, SNIPPET_LENGTH);
 
@@ -160,9 +160,18 @@ export async function handleEmail(message: ForwardableEmailMessage, env: Env) {
   }
 }
 
-async function sha256Hex(buf: ArrayBuffer): Promise<string> {
+async function sha256Hex(buf: BufferSource): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", buf);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Cuts a string to at most `max` UTF-8 bytes without splitting a character. */
+function cutToBytes(value: string, max: number): { value: string; truncated: boolean } {
+  const bytes = new TextEncoder().encode(value);
+  if (bytes.byteLength <= max) return { value, truncated: false };
+  // TextDecoder drops a partial character at the cut point instead of
+  // producing garbage.
+  return { value: new TextDecoder().decode(bytes.subarray(0, max)).replace(/\uFFFD$/, ""), truncated: true };
 }
 
 function stripTags(html: string): string {

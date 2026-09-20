@@ -58,9 +58,21 @@ describe("email handler limits", () => {
     const db = getDb(env);
     const row = await db.query.messages.findFirst({ where: eq(schema.messages.dedupeKey, "big@sender.example|<huge@sender.example>") });
     expect(row!.bodyTruncated).toBe(true);
-    expect(row!.htmlBody!.length).toBeLessThanOrEqual(700_000);
+    expect(new TextEncoder().encode(row!.htmlBody!).byteLength).toBeLessThanOrEqual(600_000);
     const raw = await env.MAIL.get(row!.rawKey);
     expect(raw!.size).toBeGreaterThan(900_000);
+  });
+
+  it("cuts multi-byte text on a character boundary", async () => {
+    const arabic = "مرحبا ".repeat(200_000); // ~2.2 MB of UTF-8
+    const raw = multipart("arabic", 0, 10).replace(`<p>${"x".repeat(10)}</p>`, `<p>${arabic}</p>`);
+    const { msg } = fakeEmail(raw, "big@sender.example", ADDRESS);
+    await handleEmail(msg, env);
+    const db = getDb(env);
+    const row = await db.query.messages.findFirst({ where: eq(schema.messages.dedupeKey, "big@sender.example|<arabic@sender.example>") });
+    expect(row!.bodyTruncated).toBe(true);
+    expect(row!.htmlBody!.includes("\uFFFD")).toBe(false);
+    expect(new TextEncoder().encode(row!.htmlBody!).byteLength).toBeLessThanOrEqual(600_000);
   });
 
   it("replaces a malformed attachment type with a plain download type", async () => {

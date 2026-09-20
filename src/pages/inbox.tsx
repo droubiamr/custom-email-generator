@@ -140,8 +140,10 @@ export function InboxPage() {
   async function deleteCustomer() {
     try {
       await api(`/api/customers/${customerId}`, { method: "DELETE" });
-      await refreshCustomers();
+      // Leave the page before the list refreshes, so this screen never tries
+      // to re-fetch a customer that no longer exists.
       navigate("/", { replace: true });
+      refreshCustomers().catch(() => {});
     } catch {
       toast.error(t("auth.generic"));
     }
