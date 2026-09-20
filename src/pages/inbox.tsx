@@ -27,6 +27,7 @@ import {
 import { NEW_MAIL_EVENT, useAppData } from "@/components/app-data";
 import { MessageView } from "@/components/message-view";
 import { api, ApiError } from "@/lib/api";
+import { copyText } from "@/lib/clipboard";
 import { formatShort } from "@/lib/format";
 import type { CustomerDto, MessageListItem, MessageListResponse } from "../../shared/api";
 
@@ -128,11 +129,10 @@ export function InboxPage() {
 
   async function copyAddress() {
     if (!customer) return;
-    try {
-      await navigator.clipboard.writeText(customer.address);
+    if (await copyText(customer.address)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
+    } else {
       toast.error(t("auth.generic"));
     }
   }

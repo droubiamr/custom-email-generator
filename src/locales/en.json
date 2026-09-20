@@ -49,7 +49,8 @@
     "noDomain": "No mail domain is set up yet.",
     "cannotBuild": "Could not build an address from that name. Edit it below.",
     "invalidLocalPart": "Use letters, numbers, dots or dashes only.",
-    "taken": "That address was taken, so a number was added."
+    "taken": "That address was taken, so a number was added.",
+    "createdAndCopied": "Address created and copied"
   },
   "inbox": {
     "searchMessages": "Search messages",

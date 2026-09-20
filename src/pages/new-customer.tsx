@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAppData } from "@/components/app-data";
 import { api, ApiError } from "@/lib/api";
+import { copyText } from "@/lib/clipboard";
 import { isValidLocalPart, suggestLocalPart } from "../../shared/address";
 import type { CustomerDto } from "../../shared/api";
 
@@ -43,10 +44,14 @@ export function NewCustomerPage() {
         method: "POST",
         json: { name: name.trim(), localPart, domainId: domain.id },
       });
+      // Put the new address on the clipboard straight away: it is almost
+      // always the next thing you paste into an application form.
+      const copied = await copyText(created.address);
+      toast.success(copied ? t("newCustomer.createdAndCopied") : t("newCustomer.created"), {
+        description: created.address,
+      });
       if (created.address !== `${localPart}@${domain.name}`) {
         toast.info(t("newCustomer.taken"), { description: created.address });
-      } else {
-        toast.success(t("newCustomer.created"), { description: created.address });
       }
       refreshCustomers().catch(() => {});
       navigate(`/c/${created.id}`);
