@@ -23,7 +23,7 @@
       "binding": "DB",
       "database_name": "custom-email-generator",
       // Replaced with the real id after `wrangler d1 create` at deploy time.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "3e79bea1-dbc5-4d91-999e-94e93db197ef",
       "migrations_dir": "drizzle"
     }
   ],
