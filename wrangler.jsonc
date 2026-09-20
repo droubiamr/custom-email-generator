@@ -33,8 +33,8 @@
   "vars": {
     // Public, non-secret settings. Secrets (BETTER_AUTH_SECRET) go in
     // .dev.vars locally and `wrangler secret put` in production.
-    "APP_URL": "https://hrcustomer.trip.sy",
-    "MAIL_DOMAIN": "hrcustomer.trip.sy",
+    "APP_URL": "https://homsreisen.trip.sy",
+    "MAIL_DOMAIN": "homsreisen.trip.sy",
     // ALLOWED_SIGNUP_EMAILS is a secret, not a var: comma-separated emails
     // allowed to create an account. Missing or empty means nobody can sign
     // up; "*" opens sign-up to everyone.
