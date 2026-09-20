@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { AuthFrame } from "@/components/auth-frame";
+import { PasswordInput } from "@/components/password-input";
 import { signIn, useSession } from "@/lib/auth-client";
 
 export function LoginPage() {
@@ -15,6 +18,7 @@ export function LoginPage() {
   const { data: session, isPending } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -24,7 +28,7 @@ export function LoginPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error } = await signIn.email({ email: email.trim(), password });
+    const { error } = await signIn.email({ email: email.trim(), password, rememberMe: remember });
     setBusy(false);
     if (error) {
       setError(error.status === 401 || error.status === 403 ? t("auth.invalid") : t("auth.generic"));
@@ -54,9 +58,8 @@ export function LoginPage() {
           </Field>
           <Field>
             <FieldLabel htmlFor="password">{t("auth.password")}</FieldLabel>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
               required
               value={password}
@@ -66,6 +69,15 @@ export function LoginPage() {
             />
             {error && <FieldError>{error}</FieldError>}
           </Field>
+          <Label htmlFor="remember" className="flex cursor-pointer items-center gap-3 text-sm font-normal">
+            <Checkbox
+              id="remember"
+              checked={remember}
+              onCheckedChange={(v) => setRemember(v === true)}
+              className="size-5"
+            />
+            {t("auth.rememberMe")}
+          </Label>
           <Button type="submit" size="xl" disabled={busy || !email || !password}>
             {busy && <Spinner />}
             {busy ? t("auth.signingIn") : t("auth.signIn")}

@@ -44,7 +44,9 @@ export function createAuth(env: Env) {
       maxPasswordLength: 128,
     },
     session: {
-      expiresIn: 60 * 60 * 24 * 14, // 14 days
+      // "Keep me signed in" on the login page makes the cookie last this
+      // long. Without it the cookie ends when the browser is closed.
+      expiresIn: 60 * 60 * 24 * 30, // 30 days
       updateAge: 60 * 60 * 24, // refresh the expiry once a day of use
       cookieCache: { enabled: true, maxAge: 60 }, // revoked sessions die within a minute
     },

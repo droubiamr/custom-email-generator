@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthFrame } from "@/components/auth-frame";
+import { PasswordInput } from "@/components/password-input";
 import { signUp, useSession } from "@/lib/auth-client";
 
 const MIN_PASSWORD = 10;
@@ -17,6 +18,7 @@ export function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -24,6 +26,7 @@ export function SignupPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!valid) return;
     setBusy(true);
     setError(null);
     const { error } = await signUp.email({ name: name.trim(), email: email.trim(), password });
@@ -35,7 +38,10 @@ export function SignupPage() {
     navigate("/", { replace: true });
   }
 
-  const valid = name.trim().length > 0 && email.includes("@") && password.length >= MIN_PASSWORD;
+  // Only complain about a mismatch once the second box has something in it.
+  const mismatch = confirm.length > 0 && confirm !== password;
+  const valid =
+    name.trim().length > 0 && email.includes("@") && password.length >= MIN_PASSWORD && confirm === password;
 
   return (
     <AuthFrame title={t("auth.signUp")}>
@@ -68,9 +74,8 @@ export function SignupPage() {
           </Field>
           <Field>
             <FieldLabel htmlFor="password">{t("auth.password")}</FieldLabel>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="new-password"
               required
               minLength={MIN_PASSWORD}
@@ -80,6 +85,20 @@ export function SignupPage() {
               dir="ltr"
             />
             <FieldDescription>{t("auth.passwordHint")}</FieldDescription>
+          </Field>
+          <Field data-invalid={mismatch || undefined}>
+            <FieldLabel htmlFor="confirm">{t("auth.confirmPassword")}</FieldLabel>
+            <PasswordInput
+              id="confirm"
+              autoComplete="new-password"
+              required
+              aria-invalid={mismatch || undefined}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              className="h-12 px-4 text-base"
+              dir="ltr"
+            />
+            {mismatch && <FieldError>{t("auth.passwordMismatch")}</FieldError>}
             {error && <FieldError>{error}</FieldError>}
           </Field>
           <Button type="submit" size="xl" disabled={busy || !valid}>

@@ -30,7 +30,12 @@
     "creating": "Creating…",
     "invalid": "Wrong email or password.",
     "signUpClosed": "Sign-up is by invitation only.",
-    "generic": "Something went wrong. Try again."
+    "generic": "Something went wrong. Try again.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "confirmPassword": "Repeat password",
+    "passwordMismatch": "The two passwords do not match.",
+    "rememberMe": "Keep me signed in for 30 days"
   },
   "newCustomer": {
     "title": "Create an email address",
